@@ -1,0 +1,40 @@
+# IntelliJ IDEA
+.idea/
+.idea_backup/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+
+# Maven / Spring Boot
+target/
+
+# Java build files
+*.class
+*.jar
+*.war
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+application-local.properties
+application-local.yml
+
+# React / Vite later
+node_modules/
+dist/
+
+# Temporary files
+*.tmp
+*.swp
