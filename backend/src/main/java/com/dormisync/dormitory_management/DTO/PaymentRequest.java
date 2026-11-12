@@ -1,27 +1,17 @@
 package com.dormisync.dormitory_management.DTO;
 
-import java.math.BigDecimal;
-
+/** A tenant paying one monthly bill. The amount always comes from the bill. */
 public class PaymentRequest {
-    private Long leaseId;
-    private BigDecimal amount;
+    private Long billId;
     private String paymentMethod;
     private String referenceNumber;
 
-    public Long getLeaseId() {
-        return leaseId;
+    public Long getBillId() {
+        return billId;
     }
 
-    public void setLeaseId(Long leaseId) {
-        this.leaseId = leaseId;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
+    public void setBillId(Long billId) {
+        this.billId = billId;
     }
 
     public String getPaymentMethod() {

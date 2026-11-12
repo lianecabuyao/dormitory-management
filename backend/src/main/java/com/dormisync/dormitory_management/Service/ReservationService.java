@@ -3,13 +3,17 @@ package com.dormisync.dormitory_management.Service;
 import com.dormisync.dormitory_management.Entity.Reservation;
 import com.dormisync.dormitory_management.Entity.Room;
 import com.dormisync.dormitory_management.Entity.User;
+import com.dormisync.dormitory_management.Enums.LeaseStatus;
 import com.dormisync.dormitory_management.Enums.ReservationStatus;
 import com.dormisync.dormitory_management.Enums.RoomStatus;
 import com.dormisync.dormitory_management.Enums.UserRole;
+import com.dormisync.dormitory_management.Repository.LeaseRepository;
 import com.dormisync.dormitory_management.Repository.ReservationRepository;
 import com.dormisync.dormitory_management.Repository.RoomRepository;
 import com.dormisync.dormitory_management.Repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,15 +23,18 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final UserRepository userRepository;
     private final RoomRepository roomRepository;
+    private final LeaseRepository leaseRepository;
 
     public ReservationService(
             ReservationRepository reservationRepository,
             UserRepository userRepository,
-            RoomRepository roomRepository) {
+            RoomRepository roomRepository,
+            LeaseRepository leaseRepository) {
 
         this.reservationRepository = reservationRepository;
         this.userRepository = userRepository;
         this.roomRepository = roomRepository;
+        this.leaseRepository = leaseRepository;
     }
 
     public List<Reservation> getAllReservations() {
@@ -56,6 +63,23 @@ public class ReservationService {
             throw new RuntimeException(
                     "Only tenants can create reservations"
             );
+        }
+
+        // One room per tenant: no new reservation while they have a lease or a reservation in progress.
+        boolean hasOpenLease = leaseRepository.findByTenantId(tenantId).stream()
+                .anyMatch(l -> l.getStatus() == LeaseStatus.PENDING || l.getStatus() == LeaseStatus.ACTIVE);
+        if (hasOpenLease) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "You already have a room. Your current lease must end before you can reserve another.");
+        }
+
+        boolean hasOpenReservation = reservationRepository.findByTenantId(tenantId).stream()
+                .anyMatch(r -> r.getStatus() == ReservationStatus.PENDING
+                        || (r.getStatus() == ReservationStatus.APPROVED
+                                && leaseRepository.findByReservationId(r.getId()).isEmpty()));
+        if (hasOpenReservation) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "You already have a reservation in progress. Cancel it first to reserve a different room.");
         }
 
         if (room.getStatus() != RoomStatus.AVAILABLE) {
@@ -131,6 +155,18 @@ public class ReservationService {
     public Reservation cancelReservation(Long id) {
 
         Reservation reservation = getReservationById(id);
+
+        if (reservation.getStatus() != ReservationStatus.PENDING
+                && reservation.getStatus() != ReservationStatus.APPROVED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only pending or approved reservations can be cancelled");
+        }
+
+        // Once a lease exists, ending the stay is done by terminating the lease instead.
+        if (leaseRepository.findByReservationId(id).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This reservation already has a lease. Ask the landlord to terminate the lease instead.");
+        }
 
         if (reservation.getStatus() == ReservationStatus.APPROVED) {
             Room room = reservation.getRoom();

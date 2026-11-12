@@ -6,6 +6,7 @@ export type ReservationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED
 export type LeaseStatus = 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED'
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
 export type MaintenanceStatus = 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CANCELLED'
+export type BillStatus = 'UNPAID' | 'PENDING' | 'PAID' | 'CANCELLED'
 
 /** Which login page a sign-in comes from: /login (tenants) or /admin (admins and landlords). */
 export type Portal = 'TENANT' | 'STAFF'
@@ -39,9 +40,18 @@ export interface Room {
   currentOccupants: number
   monthlyRate: number
   status: RoomStatus
+  /** Main photo, e.g. /uploads/rooms/abc.jpg (null if the room has no photos). */
+  coverPhotoUrl: string | null
 }
 
-export type RoomInput = Omit<Room, 'id'>
+export type RoomInput = Omit<Room, 'id' | 'coverPhotoUrl'>
+
+export interface RoomPhoto {
+  id: number
+  url: string
+  cover: boolean
+  uploadedAt: string
+}
 
 export interface Reservation {
   id: number
@@ -66,12 +76,14 @@ export interface Lease {
 export interface LeaseRequest {
   reservationId: number
   startDate: string
-  endDate?: string
+  endDate: string
 }
 
 export interface Payment {
   id: number
   lease: Lease
+  /** The month this payment is for (null for payments made before billing existed). */
+  bill: BillSummary | null
   tenant: User
   amount: number
   paymentDate: string | null
@@ -80,9 +92,25 @@ export interface Payment {
   referenceNumber: string | null
 }
 
-export interface PaymentRequest {
-  leaseId: number
+/** One month of rent for a lease, created automatically with the lease. */
+export interface Bill {
+  id: number
+  lease: Lease
+  monthNumber: number
+  periodStart: string
+  periodEnd: string
+  dueDate: string
   amount: number
+  status: BillStatus
+  /** Unpaid and past its due date (computed by the backend). */
+  overdue: boolean
+}
+
+/** A bill as embedded in a payment (without its lease). */
+export type BillSummary = Omit<Bill, 'lease'>
+
+export interface PaymentRequest {
+  billId: number
   paymentMethod: string
   referenceNumber?: string
 }

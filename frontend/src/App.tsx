@@ -3,6 +3,7 @@ import { Layout } from './components/Layout'
 import { DashboardPage } from './pages/DashboardPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SignInPage } from './pages/SignInPage'
+import { BillingPage } from './pages/manage/BillingPage'
 import { LeasesPage } from './pages/manage/LeasesPage'
 import { MaintenancePage } from './pages/manage/MaintenancePage'
 import { PaymentsPage } from './pages/manage/PaymentsPage'
@@ -61,6 +62,7 @@ export default function App() {
                 <Route path="rooms" element={<RoomsPage />} />
                 <Route path="leases" element={<LeasesPage />} />
                 <Route path="payments" element={<PaymentsPage />} />
+                <Route path="billing" element={<BillingPage />} />
                 <Route path="maintenance" element={<MaintenancePage />} />
               </Route>
             </Route>

@@ -31,6 +31,17 @@ public class Room {
     @Column(nullable = false)
     private RoomStatus status = RoomStatus.AVAILABLE;
 
+    /** URL of the room's main photo, e.g. /uploads/rooms/abc.jpg. Managed by RoomPhotoService. */
+    private String coverPhotoUrl;
+
+    public String getCoverPhotoUrl() {
+        return coverPhotoUrl;
+    }
+
+    public void setCoverPhotoUrl(String coverPhotoUrl) {
+        this.coverPhotoUrl = coverPhotoUrl;
+    }
+
     public Room() {
     }
 

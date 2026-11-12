@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { label } from '../format'
 import type { LoadState } from '../hooks'
+import type { BillStatus } from '../types'
 
 const TONES: Record<string, string> = {
   AVAILABLE: 'green',
@@ -26,6 +27,24 @@ const TONES: Record<string, string> = {
 
 export function StatusBadge({ status }: { status: string }) {
   return <span className={`badge tone-${TONES[status] ?? 'gray'}`}>{label(status)}</span>
+}
+
+const BILL_BADGES: Record<BillStatus, { tone: string; text: string }> = {
+  UNPAID: { tone: 'gray', text: 'Unpaid' },
+  PENDING: { tone: 'amber', text: 'Awaiting confirmation' },
+  PAID: { tone: 'green', text: 'Paid' },
+  CANCELLED: { tone: 'gray', text: 'Cancelled' },
+}
+
+/** Status of a monthly bill; unpaid bills past their due date show as "Overdue". */
+export function BillBadge({ bill }: { bill: { status: BillStatus; overdue: boolean } }) {
+  const { tone, text } = bill.overdue ? { tone: 'red', text: 'Overdue' } : BILL_BADGES[bill.status]
+  return <span className={`badge tone-${tone}`}>{text}</span>
+}
+
+/** A highlighted message box, e.g. "Pay your first month to move in." */
+export function Notice({ tone = 'blue', children }: { tone?: 'blue' | 'amber' | 'green' | 'red'; children: ReactNode }) {
+  return <div className={`notice tone-${tone}`}>{children}</div>
 }
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {

@@ -1,4 +1,5 @@
 import type {
+  Bill,
   Lease,
   LeaseRequest,
   MaintenanceRequest,
@@ -10,6 +11,7 @@ import type {
   Reservation,
   Room,
   RoomInput,
+  RoomPhoto,
   User,
   UserRole,
 } from './types'
@@ -31,8 +33,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   try {
     res = await fetch(`/api${path}`, {
       method,
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      // FormData (file uploads) sets its own multipart Content-Type.
+      headers: body === undefined || body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     })
   } catch {
     throw new ApiError(0, SERVER_DOWN)
@@ -85,6 +88,14 @@ export const api = {
     create: (room: RoomInput) => post<Room>('/rooms', room),
     update: (id: number, room: RoomInput) => put<Room>(`/rooms/${id}`, room),
     remove: (id: number) => del(`/rooms/${id}`),
+    photos: (roomId: number) => get<RoomPhoto[]>(`/rooms/${roomId}/photos`),
+    uploadPhotos: (roomId: number, files: File[]) => {
+      const form = new FormData()
+      for (const f of files) form.append('files', f)
+      return post<RoomPhoto[]>(`/rooms/${roomId}/photos`, form)
+    },
+    setCoverPhoto: (roomId: number, photoId: number) => put<RoomPhoto[]>(`/rooms/${roomId}/photos/${photoId}/cover`),
+    removePhoto: (roomId: number, photoId: number) => request<RoomPhoto[]>('DELETE', `/rooms/${roomId}/photos/${photoId}`),
   },
   reservations: {
     list: () => get<Reservation[]>('/reservations'),
@@ -93,6 +104,11 @@ export const api = {
     approve: (id: number) => put<Reservation>(`/reservations/${id}/approve`),
     reject: (id: number) => put<Reservation>(`/reservations/${id}/reject`),
     cancel: (id: number) => put<Reservation>(`/reservations/${id}/cancel`),
+  },
+  bills: {
+    list: () => get<Bill[]>('/bills'),
+    byLease: (leaseId: number) => get<Bill[]>(`/bills/lease/${leaseId}`),
+    byTenant: (tenantId: number) => get<Bill[]>(`/bills/tenant/${tenantId}`),
   },
   leases: {
     list: () => get<Lease[]>('/lease'),

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { ListState, PageHeader, StatusBadge } from '../../components/ui'
-import { dateTime, money } from '../../format'
+import { billLabel, dateTime, money } from '../../format'
 import { useLoad } from '../../hooks'
 import { useCurrentUser } from '../../session'
 
@@ -30,6 +30,7 @@ export function MyPaymentsPage() {
                 <tr>
                   <th>Date</th>
                   <th>Room</th>
+                  <th>For</th>
                   <th className="num">Amount</th>
                   <th>Method</th>
                   <th>Reference</th>
@@ -43,6 +44,7 @@ export function MyPaymentsPage() {
                     <tr key={p.id}>
                       <td>{dateTime(p.paymentDate)}</td>
                       <td>Room {p.lease.room.roomNumber}</td>
+                      <td>{p.bill ? billLabel(p.bill) : '—'}</td>
                       <td className="num">{money(p.amount)}</td>
                       <td>{p.paymentMethod ?? '—'}</td>
                       <td className="mono">{p.referenceNumber ?? '—'}</td>

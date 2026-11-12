@@ -23,6 +23,7 @@ const NAV: Record<UserRole, NavItem[]> = {
     { to: '/rooms', text: 'Rooms' },
     { to: '/users', text: 'Users' },
     { to: '/payments', text: 'Payments' },
+    { to: '/billing', text: 'Billing' },
     { to: '/maintenance', text: 'Maintenance' },
   ],
   LANDLORD: [
@@ -30,6 +31,7 @@ const NAV: Record<UserRole, NavItem[]> = {
     { to: '/rooms', text: 'Rooms' },
     { to: '/leases', text: 'Leases' },
     { to: '/payments', text: 'Payments' },
+    { to: '/billing', text: 'Billing' },
     { to: '/maintenance', text: 'Maintenance' },
   ],
 }

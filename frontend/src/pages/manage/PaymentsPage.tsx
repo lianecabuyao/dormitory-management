@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api'
 import { ListState, PageHeader, StatusBadge, Tabs } from '../../components/ui'
-import { dateTime, fullName, money } from '../../format'
+import { billLabel, dateTime, fullName, money } from '../../format'
 import { useLoad } from '../../hooks'
 import { useAction } from '../../toast'
 import type { Payment, PaymentStatus } from '../../types'
@@ -18,7 +18,7 @@ export function PaymentsPage() {
   for (const p of payments.data ?? []) counts[p.status] = (counts[p.status] ?? 0) + 1
 
   const confirm = async (p: Payment) => {
-    if (await run(() => api.payments.confirm(p.id), `Payment of ${money(p.amount)} confirmed.`)) await payments.reload()
+    if (await run(() => api.payments.confirm(p.id), `Payment of ${money(p.amount)} confirmed${p.bill ? ` for month ${p.bill.monthNumber}` : ''}.`)) await payments.reload()
   }
 
   const fail = async (p: Payment) => {
@@ -42,6 +42,7 @@ export function PaymentsPage() {
                   <tr>
                     <th>Tenant</th>
                     <th>Room</th>
+                    <th>For</th>
                     <th className="num">Amount</th>
                     <th>Method</th>
                     <th>Reference</th>
@@ -57,6 +58,7 @@ export function PaymentsPage() {
                         <strong>{fullName(p.tenant)}</strong>
                       </td>
                       <td>Room {p.lease.room.roomNumber}</td>
+                      <td>{p.bill ? billLabel(p.bill) : '—'}</td>
                       <td className="num">{money(p.amount)}</td>
                       <td>{p.paymentMethod ?? '—'}</td>
                       <td className="mono">{p.referenceNumber ?? '—'}</td>

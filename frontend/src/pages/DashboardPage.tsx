@@ -76,20 +76,21 @@ export function DashboardPage() {
   const user = useCurrentUser()
   const [sampleLoaded, setSampleLoaded] = useState(false)
   const state = useLoad(async () => {
-    const [rooms, reservations, leases, payments, maintenance] = await Promise.all([
+    const [rooms, reservations, leases, payments, maintenance, bills] = await Promise.all([
       api.rooms.list(),
       api.reservations.list(),
       api.leases.list(),
       api.payments.list(),
       api.maintenance.list(),
+      api.bills.list(),
     ])
-    return { rooms, reservations, leases, payments, maintenance }
+    return { rooms, reservations, leases, payments, maintenance, bills }
   })
 
   if (state.loading && !state.data) return <Loading />
   if (state.error || !state.data) return <ErrorBox message={state.error ?? 'No data'} onRetry={() => void state.reload()} />
 
-  const { rooms, reservations, leases, payments, maintenance } = state.data
+  const { rooms, reservations, leases, payments, maintenance, bills } = state.data
   const beds = rooms.reduce((s, r) => s + r.capacity, 0)
   const occupied = rooms.reduce((s, r) => s + r.currentOccupants, 0)
   const pendingReservations = reservations.filter((r) => r.status === 'PENDING')
@@ -99,6 +100,11 @@ export function DashboardPage() {
   const pendingPayments = payments.filter((p) => p.status === 'PENDING')
   const openMaintenance = maintenance.filter((m) => m.status === 'PENDING' || m.status === 'IN_PROGRESS')
   const collected = payments.filter((p) => p.status === 'PAID').reduce((s, p) => s + p.amount, 0)
+  const overdueBills = bills.filter((b) => b.overdue)
+  // Pending leases whose first month is paid: the tenant can move in.
+  const readyToActivate = leases.filter(
+    (l) => l.status === 'PENDING' && bills.some((b) => b.lease.id === l.id && b.monthNumber === 1 && b.status === 'PAID'),
+  )
   const isAdmin = user.role === 'ADMIN'
   // Keep the card visible after loading so the sample logins stay on screen.
   const showSample = isAdmin && (rooms.length === 0 || sampleLoaded)
@@ -113,8 +119,9 @@ export function DashboardPage() {
   const todo = [
     isAdmin && { count: pendingReservations.length, text: 'reservations waiting for approval', to: '/reservations' },
     { count: approvedWithoutLease.length, text: 'approved reservations need a lease', to: '/leases' },
-    { count: leases.filter((l) => l.status === 'PENDING').length, text: 'leases waiting to be activated', to: '/leases' },
+    { count: readyToActivate.length, text: 'paid leases ready for move-in', to: '/leases' },
     { count: pendingPayments.length, text: 'payments to confirm', to: '/payments' },
+    { count: overdueBills.length, text: 'overdue rent bills', to: '/billing' },
     { count: openMaintenance.length, text: 'open maintenance requests', to: '/maintenance' },
   ].filter((t): t is { count: number; text: string; to: string } => Boolean(t))
 

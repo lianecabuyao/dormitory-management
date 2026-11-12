@@ -35,8 +35,7 @@ public class PaymentController {
             @RequestBody PaymentRequest request) {
 
         return paymentService.createPayment(
-                request.getLeaseId(),
-                request.getAmount(),
+                request.getBillId(),
                 request.getPaymentMethod(),
                 request.getReferenceNumber()
         );

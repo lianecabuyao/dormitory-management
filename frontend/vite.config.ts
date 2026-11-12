@@ -9,6 +9,8 @@ export default defineConfig({
     // Forward /api/* to the Spring Boot backend so the app can use relative URLs.
     proxy: {
       '/api': 'http://localhost:8080',
+      // Uploaded room photos are served by the backend too.
+      '/uploads': 'http://localhost:8080',
     },
   },
 })

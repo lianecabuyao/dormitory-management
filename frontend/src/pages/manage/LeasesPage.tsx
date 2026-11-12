@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { Card, ErrorBox, Field, ListState, Loading, PageHeader, StatusBadge, Tabs } from '../../components/ui'
-import { addMonths, date, fullName, isoDate, money } from '../../format'
+import { addMonths, date, fullName, isoDate, money, monthsBetween } from '../../format'
 import { useLoad } from '../../hooks'
 import { useAction } from '../../toast'
-import type { Lease, LeaseStatus, Reservation } from '../../types'
+import type { Bill, Lease, LeaseStatus, Reservation } from '../../types'
 
 type Filter = 'ALL' | LeaseStatus
 const FILTERS: Filter[] = ['ALL', 'PENDING', 'ACTIVE', 'EXPIRED', 'TERMINATED']
@@ -12,6 +13,7 @@ const FILTERS: Filter[] = ['ALL', 'PENDING', 'ACTIVE', 'EXPIRED', 'TERMINATED']
 export function LeasesPage() {
   const leases = useLoad(() => api.leases.list())
   const reservations = useLoad(() => api.reservations.list())
+  const bills = useLoad(() => api.bills.list())
   const { run, busy } = useAction()
   const [filter, setFilter] = useState<Filter>('ALL')
 
@@ -23,7 +25,10 @@ export function LeasesPage() {
     (r) => r.status === 'APPROVED' && !(leases.data ?? []).some((l) => l.reservation?.id === r.id),
   )
 
-  const reloadAll = () => Promise.all([leases.reload(), reservations.reload()])
+  const reloadAll = () => Promise.all([leases.reload(), reservations.reload(), bills.reload()])
+
+  const billsOf = (l: Lease): Bill[] =>
+    (bills.data ?? []).filter((b) => b.lease.id === l.id).sort((a, b) => a.monthNumber - b.monthNumber)
 
   const activate = async (l: Lease) => {
     if (await run(() => api.leases.activate(l.id), `Lease activated. ${fullName(l.tenant)} is now an occupant of room ${l.room.roomNumber}.`))
@@ -37,7 +42,7 @@ export function LeasesPage() {
 
   return (
     <>
-      <PageHeader title="Leases" subtitle="Turn approved reservations into leases, then activate them when the tenant moves in." />
+      <PageHeader title="Leases" subtitle="Turn approved reservations into leases. Once the tenant pays the first month, activate the lease on move-in." />
 
       <Card title="Approved reservations waiting for a lease">
         {reservations.loading && !reservations.data ? (
@@ -70,6 +75,7 @@ export function LeasesPage() {
                     <th>Room</th>
                     <th>Period</th>
                     <th className="num">Monthly rent</th>
+                    <th>Rent paid</th>
                     <th>Status</th>
                     <th />
                   </tr>
@@ -87,14 +93,20 @@ export function LeasesPage() {
                       </td>
                       <td className="num">{money(l.monthlyRent)}</td>
                       <td>
+                        <RentProgress bills={billsOf(l)} />
+                      </td>
+                      <td>
                         <StatusBadge status={l.status} />
                       </td>
                       <td className="actions">
-                        {l.status === 'PENDING' && (
-                          <button type="button" className="btn btn-small btn-primary" disabled={busy} onClick={() => void activate(l)}>
-                            Activate (move in)
-                          </button>
-                        )}
+                        {l.status === 'PENDING' &&
+                          (billsOf(l)[0]?.status === 'PAID' ? (
+                            <button type="button" className="btn btn-small btn-primary" disabled={busy} onClick={() => void activate(l)}>
+                              Activate (move in)
+                            </button>
+                          ) : (
+                            <span className="muted small">Waiting for first month's payment</span>
+                          ))}
                         {(l.status === 'ACTIVE' || l.status === 'PENDING') && (
                           <button type="button" className="btn btn-small btn-danger-ghost" disabled={busy} onClick={() => void terminate(l)}>
                             Terminate
@@ -113,16 +125,52 @@ export function LeasesPage() {
   )
 }
 
+/** "2 of 6 paid", plus how many months are overdue or waiting for confirmation. */
+function RentProgress({ bills }: { bills: Bill[] }) {
+  const billed = bills.filter((b) => b.status !== 'CANCELLED')
+  if (billed.length === 0) return <span className="muted">—</span>
+  const paid = billed.filter((b) => b.status === 'PAID').length
+  const overdue = billed.filter((b) => b.overdue).length
+  const pending = billed.filter((b) => b.status === 'PENDING').length
+  return (
+    <>
+      {paid} of {billed.length} paid
+      {overdue > 0 && (
+        <div className="small">
+          <Link to="/billing" className="text-danger">
+            {overdue} overdue →
+          </Link>
+        </div>
+      )}
+      {pending > 0 && (
+        <div className="small">
+          <Link to="/payments">{pending} to confirm →</Link>
+        </div>
+      )}
+    </>
+  )
+}
+
+const DEFAULT_LEASE_MONTHS = 6
+
 function CreateLeaseRow({ reservation, onCreated }: { reservation: Reservation; onCreated: () => void }) {
   const { run, busy } = useAction()
   const [start, setStart] = useState(isoDate())
-  const [end, setEnd] = useState(addMonths(isoDate(), 6))
+  const [end, setEnd] = useState(addMonths(isoDate(), DEFAULT_LEASE_MONTHS))
+  const months = monthsBetween(start, end)
+
+  const changeStart = (value: string) => {
+    // Keep the lease length the same when the start date moves.
+    const length = monthsBetween(start, end) || DEFAULT_LEASE_MONTHS
+    setStart(value)
+    if (value) setEnd(addMonths(value, length))
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     const ok = await run(
-      () => api.leases.create({ reservationId: reservation.id, startDate: start, endDate: end || undefined }),
-      `Lease created for ${fullName(reservation.tenant)}.`,
+      () => api.leases.create({ reservationId: reservation.id, startDate: start, endDate: end }),
+      `Lease created for ${fullName(reservation.tenant)} with ${months} monthly ${months === 1 ? 'bill' : 'bills'}.`,
     )
     if (ok) onCreated()
   }
@@ -136,10 +184,13 @@ function CreateLeaseRow({ reservation, onCreated }: { reservation: Reservation; 
         </div>
       </div>
       <Field label="Start date">
-        <input required type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+        <input required type="date" value={start} onChange={(e) => changeStart(e.target.value)} />
       </Field>
-      <Field label="End date">
-        <input type="date" min={start} value={end} onChange={(e) => setEnd(e.target.value)} />
+      <Field
+        label="End date"
+        hint={months > 0 ? `${months} monthly ${months === 1 ? 'bill' : 'bills'} of ${money(reservation.room.monthlyRate)}` : undefined}
+      >
+        <input required type="date" min={addMonths(start, 1)} value={end} onChange={(e) => setEnd(e.target.value)} />
       </Field>
       <button type="submit" className="btn btn-primary" disabled={busy}>
         Create lease

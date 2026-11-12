@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { api } from '../../api'
+import { RoomCover, RoomPhotoEditor } from '../../components/RoomPhotos'
 import { Card, Field, ListState, PageHeader, StatusBadge, Tabs } from '../../components/ui'
 import { label, money } from '../../format'
 import { useLoad } from '../../hooks'
@@ -44,10 +45,12 @@ export function RoomsPage() {
           key={editing === 'new' ? 'new' : editing.id}
           room={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null)
+          onSaved={(saved, isNew) => {
+            // A new room stays open in edit mode so photos can be added right away.
+            setEditing(isNew ? saved : null)
             void rooms.reload()
           }}
+          onPhotosChanged={() => void rooms.reload()}
         />
       )}
 
@@ -76,7 +79,10 @@ export function RoomsPage() {
                   {shown.map((r) => (
                     <tr key={r.id}>
                       <td>
-                        <strong>{r.roomNumber}</strong>
+                        <div className="room-cell">
+                          <RoomCover room={r} className="room-thumb" />
+                          <strong>{r.roomNumber}</strong>
+                        </div>
                       </td>
                       <td>{r.type}</td>
                       <td>
@@ -120,7 +126,17 @@ function Occupancy({ used, total }: { used: number; total: number }) {
   )
 }
 
-function RoomForm({ room, onClose, onSaved }: { room: Room | null; onClose: () => void; onSaved: () => void }) {
+function RoomForm({
+  room,
+  onClose,
+  onSaved,
+  onPhotosChanged,
+}: {
+  room: Room | null
+  onClose: () => void
+  onSaved: (saved: Room, isNew: boolean) => void
+  onPhotosChanged: () => void
+}) {
   const { run, busy } = useAction()
   const [form, setForm] = useState({
     roomNumber: room?.roomNumber ?? '',
@@ -140,11 +156,14 @@ function RoomForm({ room, onClose, onSaved }: { room: Room | null; onClose: () =
       status: form.status,
       currentOccupants: room?.currentOccupants ?? 0,
     }
+    let saved: Room | undefined
     const ok = await run(
-      () => (room ? api.rooms.update(room.id, body) : api.rooms.create(body)),
-      room ? `Room ${body.roomNumber} updated.` : `Room ${body.roomNumber} added.`,
+      async () => {
+        saved = room ? await api.rooms.update(room.id, body) : await api.rooms.create(body)
+      },
+      room ? `Room ${body.roomNumber} updated.` : `Room ${body.roomNumber} added. You can add photos now.`,
     )
-    if (ok) onSaved()
+    if (ok && saved) onSaved(saved, !room)
   }
 
   return (
@@ -198,10 +217,19 @@ function RoomForm({ room, onClose, onSaved }: { room: Room | null; onClose: () =
             {busy ? 'Saving…' : room ? 'Save changes' : 'Add room'}
           </button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Cancel
+            {room ? 'Close' : 'Cancel'}
           </button>
         </div>
       </form>
+
+      <section className="form-section">
+        <h3>Photos</h3>
+        {room ? (
+          <RoomPhotoEditor room={room} onChanged={onPhotosChanged} />
+        ) : (
+          <p className="muted small">Save the room first, then you can add photos here.</p>
+        )}
+      </section>
     </Card>
   )
 }

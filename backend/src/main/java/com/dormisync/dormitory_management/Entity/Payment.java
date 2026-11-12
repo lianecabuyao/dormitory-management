@@ -1,6 +1,7 @@
 package com.dormisync.dormitory_management.Entity;
 
 import com.dormisync.dormitory_management.Enums.PaymentStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -16,6 +17,12 @@ public class Payment {
     @ManyToOne
     @JoinColumn(name = "lease_id", nullable = false)
     private Lease lease;
+
+    /** The month this payment is for. Null only for payments made before billing existed. */
+    @ManyToOne
+    @JoinColumn(name = "bill_id")
+    @JsonIgnoreProperties("lease")
+    private Bill bill;
 
     @ManyToOne
     @JoinColumn(name = "tenant_id", nullable = false)
@@ -55,6 +62,14 @@ public class Payment {
 
     public void setLease(Lease lease) {
         this.lease = lease;
+    }
+
+    public Bill getBill() {
+        return bill;
+    }
+
+    public void setBill(Bill bill) {
+        this.bill = bill;
     }
 
     public User getTenant() {
